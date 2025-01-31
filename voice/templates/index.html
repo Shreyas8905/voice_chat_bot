@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
+
+    <h1 class="text-3xl font-bold mb-4">🎤 AI Voice Chat</h1>
+    <div id="chat-box" class="w-full max-w-md bg-gray-800 p-4 rounded-lg shadow-lg h-80 overflow-y-auto mb-4">
+        <p class="text-gray-400 text-center">Press the button and speak...</p>
+    </div>
+    <button onclick="startListening()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center space-x-2 transition transform hover:scale-105">
+        <span>🎤 Speak</span>
+    </button>
+    <script>
+        function startListening() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-IN';
+            recognition.start();
+
+            recognition.onstart = function() {
+                addMessage("Listening...", "user");
+            };
+
+            recognition.onresult = function(event) {
+                const userMessage = event.results[0][0].transcript;
+                addMessage(userMessage, "user");
+                sendToAI(userMessage);
+            };
+
+            recognition.onerror = function() {
+                addMessage("Could not understand, try again.", "error");
+            };
+        }
+
+        function sendToAI(userMessage) {
+            addMessage("Thinking...", "ai");
+
+            fetch('/voice/chat/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMessage })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const aiMessage = data.response;
+                updateLastMessage(aiMessage);
+                speakText(aiMessage);
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                updateLastMessage("Error communicating with AI.");
+            });
+        }
+
+        function speakText(text) {
+            const speech = new SpeechSynthesisUtterance(text);
+            speech.lang = "en-IN";
+            window.speechSynthesis.speak(speech);
+        }
+        function addMessage(text, sender) {
+            const chatBox = document.getElementById("chat-box");
+            const message = document.createElement("div");
+            message.classList.add("p-2", "rounded-lg", "my-2", "text-white", "w-fit", "max-w-xs");
+            
+            if (sender === "user") {
+                message.classList.add("bg-blue-500", "self-end", "ml-auto");
+                message.innerHTML = `<strong>You:</strong> ${text}`;
+            } else if (sender === "ai") {
+                message.classList.add("bg-green-500", "self-start", "mr-auto");
+                message.innerHTML = `<strong>AI:</strong> ${text}`;
+            } else {
+                message.classList.add("bg-red-500", "text-white", "text-center", "w-full");
+                message.innerText = text;
+            }
+
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function updateLastMessage(text) {
+            const chatBox = document.getElementById("chat-box");
+            const lastMessage = chatBox.lastChild;
+            if (lastMessage) {
+                lastMessage.innerHTML = `<strong>AI:</strong> ${text}`;
+            }
+        }
+    </script>
+
+</body>
+</html>
